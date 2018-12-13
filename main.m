@@ -31,7 +31,7 @@ fprintf("Total face images: %d\n", num_imgs);
 
 %% Split data for training and testing.
 fprintf("2.--------Spliting dataset for training and testing.----------\n")
-split = 0.3;
+split = 0.2;
 num_test_per_subject = round(split*num_facetypes);
 sample_idx = zeros(num_classes, num_test_per_subject);
 % sample index from each subject for test -- eg: [[4 8 11], [5 10 6], ...]
@@ -54,11 +54,11 @@ fprintf("Training num: %d, Testing num %d \n", num_trainSet, num_testSet);
 
 %% Reducing dimension of face data by PCA to extract features.
 fprintf("3.-------------Reducing dimension by PCA.---------------------\n")
-[coeff, ~, latent] = pca(trainSet);
+[coeff, principal_component, latent] = pca(trainSet);
 mean_trainSet = mean(trainSet, 1);
 center_trainSet = trainSet - repmat(mean_trainSet, num_trainSet, 1);
 center_testSet = testSet - repmat(mean_trainSet, num_testSet, 1);
-threshold = 0.9;
+threshold = 0.8;
 i = 0;
 eigval_sum=0;
 while eigval_sum < threshold*sum(latent)
@@ -67,9 +67,9 @@ while eigval_sum < threshold*sum(latent)
 end
 pca_trainSet = center_trainSet*coeff(:,1:i);
 pca_testSet = center_testSet*coeff(:,1:i);
-new_dimention = i;
+new_dimension = i;
 fprintf("Reducing dimension from %d to %d at threshold %0.2f\n",...
-    original_dimention, new_dimention, threshold);
+    original_dimention, new_dimension, threshold);
 
 
 fprintf('4. ----Classfication extracted feature by KNN and SVM--------- \n');
@@ -107,6 +107,7 @@ examlpe_subjects_num = 3;
 examlpe_facetypes_num = 3;
 example_subjects = randperm(num_classes, examlpe_subjects_num);
 examlpe_facetypes = randperm(num_facetypes, examlpe_facetypes_num);
+figure(1);
 for i=1:examlpe_subjects_num
     for j=1:examlpe_facetypes_num
         subplot(examlpe_subjects_num, examlpe_facetypes_num,(i-1)*examlpe_facetypes_num+j)
@@ -117,8 +118,31 @@ for i=1:examlpe_subjects_num
         imshow(example_img)
         test_img = double(reshape(example_img, 1, original_dimention));
         test_img = test_img - repmat(mean_trainSet, 1, 1);
-        test_img = test_img*coeff(:,1:new_dimention);main
+        test_img = test_img*coeff(:,1:new_dimension);
         predict_class = predict(knn_model, test_img);
         title(strcat("subject", subject_id(ii), ".", face_type(jj), '-preict-', num2str(predict_class)))
     end
 end
+
+%% Inference for some example and show resulting image.
+fprintf("6.-----------Showing some eigenface---------------------------\n")
+figure(2);
+title('eigenface');
+colormap gray
+new_dimension_sqrt = ceil(sqrt(new_dimension));
+for i=1:new_dimension
+    subplot(new_dimension_sqrt,new_dimension_sqrt,i);
+    imagesc(reshape(coeff(:,i), width, height))
+end
+figure(3);
+title('reconstructed face');
+img_file = strcat(img_dir, "subject", subject_id(1), ".", face_type(1));
+example_img = imread(img_file, 'gif');
+subplot(221)
+imshow(example_img)
+test_img = double(reshape(example_img, 1, original_dimention));
+test_img_coeff = (test_img - mean_trainSet)*coeff(:,1:new_dimension);
+reconstructed_img = test_img_coeff*coeff(:,1:new_dimension)';
+colormap gray
+subplot(224)
+imagesc(reshape(reconstructed_img, width, height))
